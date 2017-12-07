@@ -10,7 +10,6 @@ function activate(context) {
 
     let disposable = vscode.commands.registerCommand('extension.sayHello', function () {
         const currentWorkingFile = vscode.window.activeTextEditor.document.fileName;
-        console.log("currentWorkingFile", currentWorkingFile);
 
         if (!currentWorkingFile) {
             vscode.window.showInformationMessage("No current working file detected. Please close and reload current file, then try again.");
@@ -27,34 +26,26 @@ function activate(context) {
             return;
         }
 
-        console.log("isSourceFile: ", isSourceFile);
-        console.log("isTestFile: ", isTestFile);
-
         if (isSourceFile) {
             const testFileName = currentWorkingFileName.replace(sourceDirectory, testDirectory);
-            console.log("Opening: ", testFileName);
 
             const filePath = rootPath + testFileName;
 
             vscode.workspace.openTextDocument(vscode.Uri.file(filePath))
                 .then(
                     document => vscode.window.showTextDocument(document),
-                    () => {
-                        console.log("Creating file!");
-
-                        ensureDirectoryExistence(filePath)
-                        const createStream = fs.createWriteStream(filePath);
-                        createStream.end();
-
-                        vscode.workspace.openTextDocument(vscode.Uri.file(filePath))
-                            .then(document => vscode.window.showTextDocument(document))
-                    }
+                    // In case of error, we assume file does not exist and create it.
+                    () => createNewTestFile(filePath)
                 )
         }
         else {
             const sourceFileName = currentWorkingFileName.replace(testDirectory, sourceDirectory);
             vscode.workspace.openTextDocument(vscode.Uri.file(rootPath + sourceFileName))
-                .then(document => vscode.window.showTextDocument(document))
+                .then(
+                    document => vscode.window.showTextDocument(document),
+                    // Ignore errors
+                    () => {}
+                )
         }
 
         return;
@@ -68,6 +59,15 @@ exports.activate = activate;
 function deactivate() {}
 
 exports.deactivate = deactivate;
+
+function createNewTestFile(filePath) {
+    ensureDirectoryExistence(filePath)
+    const createStream = fs.createWriteStream(filePath);
+    createStream.end();
+
+    vscode.workspace.openTextDocument(vscode.Uri.file(filePath))
+        .then(document => vscode.window.showTextDocument(document))
+}
 
 function ensureDirectoryExistence(filePath) {
     var dirname = path.dirname(filePath);
